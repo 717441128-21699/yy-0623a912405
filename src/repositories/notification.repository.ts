@@ -116,6 +116,12 @@ export function markNotificationEscalated(id: string, escalatedTo: string): Noti
   }) as Notification | null;
 }
 
+export function updateNotificationContent(id: string, content: string): Notification | null {
+  return db.update('notifications', id, {
+    content
+  }) as Notification | null;
+}
+
 export function getPendingNotifications(): Notification[] {
   const notifications = db.findAll(
     'notifications',

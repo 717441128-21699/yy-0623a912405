@@ -12,6 +12,7 @@ export interface CreateAlertEventInput {
   alertLevel: AlertLevel;
   powerOffDurationMinutes: number;
   currentTemperature?: number;
+  currentBatteryVoltage?: number;
   goodsSensitivity?: GoodsSensitivity;
   nearDelivery?: boolean;
   description?: string;
@@ -29,6 +30,7 @@ export function createAlertEvent(input: CreateAlertEventInput): AlertEvent {
     alertLevel: input.alertLevel,
     powerOffDurationMinutes: input.powerOffDurationMinutes,
     currentTemperature: input.currentTemperature,
+    currentBatteryVoltage: input.currentBatteryVoltage,
     goodsSensitivity: input.goodsSensitivity || GoodsSensitivity.MEDIUM,
     nearDelivery: input.nearDelivery || false,
     description: input.description || '',
@@ -49,6 +51,19 @@ export function getActiveAlertByVehicle(vehicleId: string): AlertEvent | null {
   const alerts = db.findAll(
     'alertEvents',
     (a: AlertEvent) => a.vehicleId === vehicleId && a.status === 'active'
+  ) as AlertEvent[];
+  if (alerts.length === 0) return null;
+  alerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return alerts[0];
+}
+
+export function getActiveAlertByVehicleAndType(vehicleId: string, alertType: AlertType): AlertEvent | null {
+  const alerts = db.findAll(
+    'alertEvents',
+    (a: AlertEvent) =>
+      a.vehicleId === vehicleId &&
+      a.status === 'active' &&
+      a.alertType === alertType
   ) as AlertEvent[];
   if (alerts.length === 0) return null;
   alerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -109,4 +124,21 @@ export function updateAlertEventLevel(id: string, newLevel: AlertLevel): AlertEv
   return db.update('alertEvents', id, {
     alertLevel: newLevel
   }) as AlertEvent | null;
+}
+
+export interface UpdateAlertEventDetailsInput {
+  alertLevel?: AlertLevel;
+  powerOffDurationMinutes?: number;
+  currentTemperature?: number;
+  currentBatteryVoltage?: number;
+  signalId?: string;
+  nearDelivery?: boolean;
+  description?: string;
+}
+
+export function updateAlertEventDetails(
+  id: string,
+  updates: UpdateAlertEventDetailsInput
+): AlertEvent | null {
+  return db.update('alertEvents', id, updates) as AlertEvent | null;
 }

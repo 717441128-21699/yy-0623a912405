@@ -71,6 +71,7 @@ export interface AlertEvent {
   alertLevel: AlertLevel;
   powerOffDurationMinutes: number;
   currentTemperature?: number;
+  currentBatteryVoltage?: number;
   goodsSensitivity: GoodsSensitivity;
   nearDelivery: boolean;
   description: string;

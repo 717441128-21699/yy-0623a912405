@@ -34,11 +34,12 @@ export async function listNotifications(req: Request, res: Response, next: NextF
 export async function confirmNotification(req: Request, res: Response, next: NextFunction) {
   try {
     const { confirmedBy } = req.body;
-    const notification = notificationService.confirmNotification(req.params.id, confirmedBy);
+    const result = notificationService.confirmNotification(req.params.id, confirmedBy);
     res.json({
       success: true,
-      data: notification,
-      message: '通知确认成功'
+      data: result.notification,
+      message: result.message,
+      isFirstConfirm: result.isFirstConfirm
     });
   } catch (err) {
     next(err);

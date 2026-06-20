@@ -14,7 +14,11 @@ export interface DispatchNotificationInput {
   alertId: string;
 }
 
-export function dispatchAlertNotifications(alertId: string): Notification[] {
+export function dispatchAlertNotifications(
+  alertId: string,
+  isUpgrade: boolean = false,
+  previousLevel?: AlertLevel
+): Notification[] {
   const alert = alertRepository.getAlertEventById(alertId);
   if (!alert) {
     throw new NotFoundError('告警事件不存在');
@@ -30,18 +34,28 @@ export function dispatchAlertNotifications(alertId: string): Notification[] {
 
   for (const recipientType of recipients) {
     const recipientInfo = getRecipientInfo(recipientType, vehicle);
-    const content = generateNotificationContent(alert, vehicle, recipientType);
 
-    const notification = notificationRepository.createNotification({
+    let notification = notificationRepository.createNotification({
       alertId: alert.id,
       vehicleId: vehicle.id,
       recipientType,
       recipientName: recipientInfo.name,
       recipientPhone: recipientInfo.phone,
       alertLevel: alert.alertLevel,
-      content,
+      content: '',
       escalationLevel: 0
     });
+
+    const content = generateNotificationContent(
+      alert,
+      vehicle,
+      recipientType,
+      notification.id,
+      isUpgrade,
+      previousLevel
+    );
+
+    notification = notificationRepository.updateNotificationContent(notification.id, content) || notification;
 
     sendNotification(notification);
     notifications.push(notification);
@@ -84,7 +98,10 @@ function getRecipientInfo(
 function generateNotificationContent(
   alert: AlertEvent,
   vehicle: Vehicle,
-  recipientType: RecipientType
+  recipientType: RecipientType,
+  notificationId: string,
+  isUpgrade: boolean = false,
+  previousLevel?: AlertLevel
 ): string {
   const levelText: Record<AlertLevel, string> = {
     [AlertLevel.REMINDER]: '提醒',
@@ -94,14 +111,25 @@ function generateNotificationContent(
 
   const greeting = getRecipientGreeting(recipientType, vehicle);
 
-  let content = `${levelText[alert.alertLevel]}${greeting}\n`;
+  let content = '';
+
+  if (isUpgrade && previousLevel) {
+    const previousLevelText = levelText[previousLevel];
+    content += `⚠️ 告警已升级 ⚠️\n`;
+    content += `等级变更: ${previousLevelText} → ${levelText[alert.alertLevel]}\n\n`;
+  }
+
+  content += `${levelText[alert.alertLevel]}${greeting}\n`;
   content += `车牌号：${vehicle.plateNumber}\n`;
   content += `司机：${vehicle.driverName}\n`;
-  content += alert.description + '\n';
+  content += `告警编号：${alert.id}\n`;
+  content += `${alert.description}\n`;
   content += `当前温度：${alert.currentTemperature?.toFixed(1) || '--'}°C\n`;
   content += `货品温区：${vehicle.temperatureZone || '--'}\n`;
-  content += `已断电时长：${Math.floor(alert.powerOffDurationMinutes)} 分钟\n`;
-  content += `\n请点击确认收到：/api/notifications/{id}/confirm`;
+  content += `已持续时长：${Math.floor(alert.powerOffDurationMinutes)} 分钟\n`;
+  content += `告警时间：${new Date(alert.createdAt).toLocaleString('zh-CN')}\n`;
+  content += `\n请点击确认收到：/api/notifications/${notificationId}/confirm\n`;
+  content += `通知编号：${notificationId}\n`;
 
   return content;
 }
@@ -132,14 +160,31 @@ async function sendNotification(notification: Notification): Promise<void> {
   }
 }
 
-export function confirmNotification(id: string, confirmedBy?: string): Notification {
+export interface ConfirmResult {
+  notification: Notification;
+  isFirstConfirm: boolean;
+  message: string;
+}
+
+export function confirmNotification(id: string, confirmedBy?: string): ConfirmResult {
   const notification = notificationRepository.getNotificationById(id);
   if (!notification) {
-    throw new NotFoundError('通知不存在');
+    throw new NotFoundError('通知不存在，请检查通知编号是否正确');
   }
 
   if (notification.status === NotificationStatus.CONFIRMED) {
-    throw new BadRequestError('该通知已确认');
+    const confirmTime = notification.confirmedAt
+      ? new Date(notification.confirmedAt).toLocaleString('zh-CN')
+      : '之前';
+    return {
+      notification,
+      isFirstConfirm: false,
+      message: `该通知已于 ${confirmTime} 由 ${notification.confirmedBy || '用户'} 确认，无需重复操作`
+    };
+  }
+
+  if (notification.status === NotificationStatus.ESCALATED) {
+    throw new BadRequestError('该通知已升级，无法再确认，请查看最新通知');
   }
 
   const result = notificationRepository.confirmNotification(id, confirmedBy);
@@ -149,7 +194,11 @@ export function confirmNotification(id: string, confirmedBy?: string): Notificat
 
   checkAlertAllConfirmed(notification.alertId);
 
-  return result;
+  return {
+    notification: result,
+    isFirstConfirm: true,
+    message: '通知确认成功，感谢您的及时处理'
+  };
 }
 
 function checkAlertAllConfirmed(alertId: string): void {
@@ -185,19 +234,27 @@ export function escalateNotification(id: string): Notification {
     throw new NotFoundError('告警事件不存在');
   }
 
-  const content = generateNotificationContent(alert, vehicle, nextRecipientType)
-    + `\n\n【升级通知】原通知发给 ${notification.recipientName} 未及时确认，已升级至您`;
-
-  const newNotification = notificationRepository.createNotification({
+  let newNotification = notificationRepository.createNotification({
     alertId: notification.alertId,
     vehicleId: notification.vehicleId,
     recipientType: nextRecipientType,
     recipientName: recipientInfo.name,
     recipientPhone: recipientInfo.phone,
     alertLevel: notification.alertLevel,
-    content,
+    content: '',
     escalationLevel: notification.escalationLevel + 1
   });
+
+  const content = generateNotificationContent(
+    alert,
+    vehicle,
+    nextRecipientType,
+    newNotification.id,
+    true,
+    notification.alertLevel
+  ) + `\n\n【升级通知】原通知发给 ${notification.recipientName} 未及时确认，已升级至您`;
+
+  newNotification = notificationRepository.updateNotificationContent(newNotification.id, content) || newNotification;
 
   notificationRepository.markNotificationEscalated(notification.id, nextRecipientType);
 
