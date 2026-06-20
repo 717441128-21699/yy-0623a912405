@@ -14,6 +14,8 @@ const router = Router();
 
 router.get('/stats', alertController.getAlertStats);
 
+router.get('/grouped/by-vehicle', alertController.getAlertsGroupedByVehicle);
+
 router.get(
   '/rules',
   validateQuery(alertRuleQuerySchema),
@@ -49,6 +51,12 @@ router.get(
   '/',
   validateQuery(alertQuerySchema),
   alertController.listAlerts
+);
+
+router.get(
+  '/:id/timeline',
+  validateParams(alertIdSchema),
+  alertController.getAlertTimeline
 );
 
 router.get(

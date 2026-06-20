@@ -308,3 +308,175 @@ export function listNotifications(
 export function getNotificationsByAlertId(alertId: string): Notification[] {
   return notificationRepository.getNotificationsByAlertId(alertId);
 }
+
+export interface ConfirmationRecordQuery {
+  vehicleId?: string;
+  alertId?: string;
+  alertType?: string;
+  status?: NotificationStatus;
+  startDate?: string;
+  endDate?: string;
+  confirmedBy?: string;
+}
+
+export function getConfirmationRecords(
+  page: number,
+  pageSize: number,
+  query: ConfirmationRecordQuery
+) {
+  const allNotifications = notificationRepository.listNotifications(1, 9999, {
+    vehicleId: query.vehicleId,
+    alertId: query.alertId,
+    status: query.status
+  } as any).data;
+
+  let filtered = allNotifications;
+
+  if (query.alertType) {
+    filtered = filtered.filter(n => {
+      const alert = alertRepository.getAlertEventById(n.alertId);
+      return alert && alert.alertType === query.alertType;
+    });
+  }
+
+  if (query.startDate) {
+    filtered = filtered.filter(n => n.createdAt >= query.startDate!);
+  }
+  if (query.endDate) {
+    const endOfDay = new Date(query.endDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    filtered = filtered.filter(n => n.createdAt <= endOfDay.toISOString());
+  }
+
+  if (query.confirmedBy) {
+    filtered = filtered.filter(n =>
+      n.confirmedBy && n.confirmedBy.toLowerCase().includes(query.confirmedBy!.toLowerCase())
+    );
+  }
+
+  const records = filtered.map(n => {
+    const alert = alertRepository.getAlertEventById(n.alertId);
+    const vehicle = vehicleRepository.getVehicleById(n.vehicleId);
+    return {
+      notificationId: n.id,
+      alertId: n.alertId,
+      alertType: alert?.alertType,
+      alertLevel: n.alertLevel,
+      vehicleId: n.vehicleId,
+      plateNumber: vehicle?.plateNumber || '',
+      recipientType: n.recipientType,
+      recipientName: n.recipientName,
+      recipientPhone: n.recipientPhone,
+      status: n.status,
+      sentAt: n.sentAt,
+      confirmedAt: n.confirmedAt,
+      confirmedBy: n.confirmedBy,
+      escalationLevel: n.escalationLevel
+    };
+  });
+
+  records.sort((a, b) =>
+    new Date(b.sentAt || b.notificationId).getTime() - new Date(a.sentAt || a.notificationId).getTime()
+  );
+
+  const total = records.length;
+  const offset = (page - 1) * pageSize;
+  const data = records.slice(offset, offset + pageSize);
+
+  return { data, total, page, pageSize };
+}
+
+export function exportConfirmationRecordsCsv(query: ConfirmationRecordQuery): string {
+  const result = getConfirmationRecords(1, 9999, query);
+
+  const headers = [
+    '通知编号',
+    '告警编号',
+    '告警类型',
+    '告警等级',
+    '车牌号',
+    '接收角色',
+    '接收人',
+    '接收电话',
+    '状态',
+    '发送时间',
+    '确认时间',
+    '确认人',
+    '升级级别'
+  ];
+
+  const alertTypeMap: Record<string, string> = {
+    'external_power_disconnect': '外接电断开',
+    'battery_voltage_abnormal': '车载电压异常',
+    'refrigeration_stop_reporting': '冷机停止上报'
+  };
+
+  const alertLevelMap: Record<string, string> = {
+    'reminder': '提醒',
+    'urgent': '紧急',
+    'critical': '重大'
+  };
+
+  const recipientTypeMap: Record<string, string> = {
+    'driver': '司机',
+    'dispatcher': '调度',
+    'quality_controller': '质控',
+    'shipper': '货主'
+  };
+
+  const statusMap: Record<string, string> = {
+    'pending': '待发送',
+    'sent': '已发送',
+    'confirmed': '已确认',
+    'failed': '发送失败',
+    'escalated': '已升级'
+  };
+
+  const rows = result.data.map(r => [
+    r.notificationId,
+    r.alertId,
+    alertTypeMap[r.alertType || ''] || r.alertType || '',
+    alertLevelMap[r.alertLevel] || r.alertLevel,
+    r.plateNumber,
+    recipientTypeMap[r.recipientType] || r.recipientType,
+    r.recipientName,
+    r.recipientPhone,
+    statusMap[r.status] || r.status,
+    r.sentAt ? new Date(r.sentAt).toLocaleString('zh-CN') : '',
+    r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('zh-CN') : '',
+    r.confirmedBy || '',
+    r.escalationLevel
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(row =>
+    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  )].join('\n');
+
+  return '\uFEFF' + csvContent;
+}
+
+export function getNotificationStats(): {
+  total: number;
+  pending: number;
+  sent: number;
+  confirmed: number;
+  failed: number;
+  escalated: number;
+  confirmationRate: number;
+} {
+  const { getDatabase } = require('../database');
+  const db = getDatabase();
+  const notifications = db.getTable('notifications') as Notification[];
+
+  const total = notifications.length;
+  const pending = notifications.filter(n => n.status === NotificationStatus.PENDING).length;
+  const sent = notifications.filter(n => n.status === NotificationStatus.SENT).length;
+  const confirmed = notifications.filter(n => n.status === NotificationStatus.CONFIRMED).length;
+  const failed = notifications.filter(n => n.status === NotificationStatus.FAILED).length;
+  const escalated = notifications.filter(n => n.status === NotificationStatus.ESCALATED).length;
+
+  const sentAndConfirmed = sent + confirmed + escalated;
+  const confirmationRate = sentAndConfirmed > 0 ? Math.round((confirmed / sentAndConfirmed) * 100) / 100 : 0;
+
+  return { total, pending, sent, confirmed, failed, escalated, confirmationRate };
+}

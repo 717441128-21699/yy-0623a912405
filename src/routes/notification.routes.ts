@@ -10,6 +10,11 @@ import {
 
 const router = Router();
 
+router.get('/stats', notificationController.getNotificationStats);
+
+router.get('/confirmations', notificationController.getConfirmationRecords);
+router.get('/confirmations/export', notificationController.exportConfirmationRecords);
+
 router.post(
   '/dispatch',
   validateBody(dispatchNotificationSchema),

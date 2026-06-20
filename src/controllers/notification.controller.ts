@@ -224,3 +224,54 @@ export async function getNotificationsByAlertId(req: Request, res: Response, nex
     next(err);
   }
 }
+
+export async function getConfirmationRecords(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { page, pageSize, ...query } = req.query as any;
+    const result = notificationService.getConfirmationRecords(
+      Number(page) || 1,
+      Number(pageSize) || 20,
+      query
+    );
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportConfirmationRecords(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { ...query } = req.query as any;
+    const csvContent = notificationService.exportConfirmationRecordsCsv(query);
+
+    const today = new Date().toISOString().split('T')[0];
+    const filename = `通知确认明细_${today}.csv`;
+    const encodedFilename = encodeURIComponent(filename);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`);
+    res.send(csvContent);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getNotificationStats(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const stats = notificationService.getNotificationStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -118,3 +118,60 @@ export interface PaginatedResult<T> {
   page: number;
   pageSize: number;
 }
+
+export interface AlertSummary {
+  id: string;
+  alertType: AlertType;
+  alertLevel: AlertLevel;
+  status: 'active' | 'resolved';
+  powerOffDurationMinutes: number;
+  currentTemperature?: number;
+  currentBatteryVoltage?: number;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  notificationTotal: number;
+  notificationConfirmed: number;
+}
+
+export interface VehicleAlertGroup {
+  vehicleId: string;
+  plateNumber: string;
+  driverName: string;
+  driverPhone: string;
+  route: string;
+  goodsSensitivity: GoodsSensitivity;
+  totalAlerts: number;
+  activeAlerts: number;
+  highestLevel: AlertLevel;
+  alerts: AlertSummary[];
+  lastAlertTime: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  eventType: 'alert_start' | 'level_upgrade' | 'notification_sent' | 'notification_confirmed' | 'notification_escalated' | 'alert_resolved' | 'signal_update';
+  timestamp: string;
+  alertType?: AlertType;
+  alertLevel?: AlertLevel;
+  previousLevel?: AlertLevel;
+  description: string;
+  details?: Record<string, any>;
+}
+
+export interface ConfirmationRecord {
+  notificationId: string;
+  alertId: string;
+  alertType: AlertType;
+  alertLevel: AlertLevel;
+  vehicleId: string;
+  plateNumber: string;
+  recipientType: string;
+  recipientName: string;
+  recipientPhone: string;
+  status: NotificationStatus;
+  sentAt?: string;
+  confirmedAt?: string;
+  confirmedBy?: string;
+  escalationLevel: number;
+}

@@ -118,3 +118,33 @@ export async function deleteAlertRule(req: Request, res: Response, next: NextFun
     next(err);
   }
 }
+
+export async function getAlertsGroupedByVehicle(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { page, pageSize, ...options } = req.query as any;
+    const result = alertService.getAlertsGroupedByVehicle(Number(page) || 1, Number(pageSize) || 10, options);
+    res.json({
+      success: true,
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAlertTimeline(req: Request, res: Response, next: NextFunction) {
+  try {
+    const timeline = alertService.getAlertTimeline(req.params.id);
+    res.json({
+      success: true,
+      data: timeline
+    });
+  } catch (err) {
+    next(err);
+  }
+}
