@@ -124,11 +124,14 @@ function generateNotificationContent(
   content += `司机：${vehicle.driverName}\n`;
   content += `告警编号：${alert.id}\n`;
   content += `${alert.description}\n`;
+  if (alert.currentBatteryVoltage !== undefined) {
+    content += `当前电压：${alert.currentBatteryVoltage.toFixed(1)}V\n`;
+  }
   content += `当前温度：${alert.currentTemperature?.toFixed(1) || '--'}°C\n`;
   content += `货品温区：${vehicle.temperatureZone || '--'}\n`;
   content += `已持续时长：${Math.floor(alert.powerOffDurationMinutes)} 分钟\n`;
   content += `告警时间：${new Date(alert.createdAt).toLocaleString('zh-CN')}\n`;
-  content += `\n请点击确认收到：/api/notifications/${notificationId}/confirm\n`;
+  content += `\n请点击确认收到：${config.baseUrl}/api/notifications/${notificationId}/confirm\n`;
   content += `通知编号：${notificationId}\n`;
 
   return content;

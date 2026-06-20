@@ -4,10 +4,20 @@ import * as signalService from '../services/signal.service';
 export async function reportSignal(req: Request, res: Response, next: NextFunction) {
   try {
     const result = signalService.reportSignal(req.body);
+    let message = '信号已接收';
+    if (result.totalAlertsCreated > 0 && result.totalAlertsResolved > 0) {
+      message = `信号已接收，生成 ${result.totalAlertsCreated} 条告警，解除 ${result.totalAlertsResolved} 条告警`;
+    } else if (result.totalAlertsCreated > 0) {
+      message = `信号已接收并生成 ${result.totalAlertsCreated} 条告警`;
+    } else if (result.totalAlertsResolved > 0) {
+      message = `信号已接收，解除 ${result.totalAlertsResolved} 条告警`;
+    } else if (result.totalAlertsUpdated > 0) {
+      message = `信号已接收，更新 ${result.totalAlertsUpdated} 条告警`;
+    }
     res.status(201).json({
       success: true,
       data: result,
-      message: result.alertCreated ? '信号已接收并生成告警' : '信号已接收'
+      message
     });
   } catch (err) {
     next(err);

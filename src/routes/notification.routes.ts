@@ -28,6 +28,12 @@ router.get(
   notificationController.getNotificationById
 );
 
+router.get(
+  '/:id/confirm',
+  validateParams(notificationIdSchema),
+  notificationController.confirmNotificationWeb
+);
+
 router.post(
   '/:id/confirm',
   validateParams(notificationIdSchema),

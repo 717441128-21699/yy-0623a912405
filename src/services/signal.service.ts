@@ -35,7 +35,16 @@ export interface SignalProcessingResult {
   newAlertLevel?: AlertLevel;
 }
 
-export function reportSignal(input: ReportSignalInput): SignalProcessingResult {
+export interface BatchSignalProcessingResult {
+  signals: PowerSignal[];
+  results: SignalProcessingResult[];
+  totalAlertsCreated: number;
+  totalAlertsUpdated: number;
+  totalAlertsResolved: number;
+  totalNotificationsSent: number;
+}
+
+export function reportSignal(input: ReportSignalInput): BatchSignalProcessingResult {
   let vehicle: Vehicle | null = null;
 
   if (input.vehicleId) {
@@ -48,87 +57,113 @@ export function reportSignal(input: ReportSignalInput): SignalProcessingResult {
     throw new NotFoundError('车辆不存在，请先创建车辆档案');
   }
 
-  const alertType = determineAlertType(input);
-  const recoveryType = determineRecoveryType(input);
+  const alertTypes = determineAlertType(input);
+  const recoveryTypes = determineRecoveryType(input);
 
-  if (!alertType && recoveryType) {
-    return handleRecoverySignal(vehicle, input, recoveryType);
+  const results: SignalProcessingResult[] = [];
+  const signals: PowerSignal[] = [];
+
+  if (recoveryTypes.length > 0) {
+    for (const recoveryType of recoveryTypes) {
+      if (!alertTypes.includes(recoveryType)) {
+        const result = handleRecoverySignal(vehicle, input, recoveryType);
+        results.push(result);
+        signals.push(result.signal);
+      }
+    }
   }
 
-  if (!alertType && !recoveryType) {
-    return handleNormalSignal(vehicle, input);
+  if (alertTypes.length > 0) {
+    for (const alertType of alertTypes) {
+      const signal = powerSignalRepository.createPowerSignal({
+        vehicleId: vehicle.id,
+        deviceId: input.deviceId,
+        alertType: alertType,
+        externalPowerConnected: input.externalPowerConnected ?? true,
+        batteryVoltage: input.batteryVoltage,
+        refrigerationRunning: input.refrigerationRunning ?? true,
+        temperature: input.temperature,
+        location: input.location,
+        timestamp: input.timestamp
+      });
+      signals.push(signal);
+
+      const isNight = isNightTime(
+        dayjs(signal.timestamp),
+        vehicle.nightStartHour,
+        vehicle.nightEndHour
+      );
+
+      if (!isNight) {
+        results.push({
+          signal,
+          alertCreated: false,
+          alertUpdated: false,
+          alertResolved: false,
+          notificationsSent: 0,
+          isNightTime: false
+        });
+      } else {
+        const result = processNightAlert(vehicle, signal, alertType);
+        results.push(result);
+      }
+    }
   }
 
-  const signal = powerSignalRepository.createPowerSignal({
-    vehicleId: vehicle.id,
-    deviceId: input.deviceId,
-    alertType: alertType!,
-    externalPowerConnected: input.externalPowerConnected ?? true,
-    batteryVoltage: input.batteryVoltage,
-    refrigerationRunning: input.refrigerationRunning ?? true,
-    temperature: input.temperature,
-    location: input.location,
-    timestamp: input.timestamp
-  });
-
-  const isNight = isNightTime(
-    dayjs(signal.timestamp),
-    vehicle.nightStartHour,
-    vehicle.nightEndHour
-  );
-
-  if (!isNight) {
-    return {
-      signal,
-      alertCreated: false,
-      alertUpdated: false,
-      alertResolved: false,
-      notificationsSent: 0,
-      isNightTime: false
-    };
+  if (alertTypes.length === 0 && recoveryTypes.length === 0) {
+    const result = handleNormalSignal(vehicle, input);
+    results.push(result);
+    signals.push(result.signal);
   }
 
-  return processNightAlert(vehicle, signal, alertType!);
+  return {
+    signals,
+    results,
+    totalAlertsCreated: results.filter(r => r.alertCreated).length,
+    totalAlertsUpdated: results.filter(r => r.alertUpdated).length,
+    totalAlertsResolved: results.filter(r => r.alertResolved).length,
+    totalNotificationsSent: results.reduce((sum, r) => sum + r.notificationsSent, 0)
+  };
 }
 
-function determineRecoveryType(input: ReportSignalInput): AlertType | null {
-  if (input.externalPowerConnected === true) {
-    const prevPowerOff = powerSignalRepository.hasPowerDisconnectedRecently(
-      input.vehicleId || '',
-      60
-    );
+function determineRecoveryType(input: ReportSignalInput): AlertType[] {
+  const types: AlertType[] = [];
+  const vehicleId = input.vehicleId || (input.plateNumber ? vehicleRepository.getVehicleByPlateNumber(input.plateNumber)?.id : undefined);
+
+  if (input.externalPowerConnected === true && vehicleId) {
+    const prevPowerOff = powerSignalRepository.hasPowerDisconnectedRecently(vehicleId, 60);
     if (prevPowerOff) {
-      return AlertType.EXTERNAL_POWER_DISCONNECT;
-    }
-  }
-
-  if (input.batteryVoltage !== undefined && input.batteryVoltage >= config.alarm.lowBatteryVoltage) {
-    const vehicleId = input.vehicleId;
-    if (vehicleId) {
       const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
         vehicleId,
-        AlertType.BATTERY_VOLTAGE_ABNORMAL
+        AlertType.EXTERNAL_POWER_DISCONNECT
       );
       if (activeAlert) {
-        return AlertType.BATTERY_VOLTAGE_ABNORMAL;
+        types.push(AlertType.EXTERNAL_POWER_DISCONNECT);
       }
     }
   }
 
-  if (input.refrigerationRunning === true) {
-    const vehicleId = input.vehicleId;
-    if (vehicleId) {
-      const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
-        vehicleId,
-        AlertType.REFRIGERATION_STOP_REPORTING
-      );
-      if (activeAlert) {
-        return AlertType.REFRIGERATION_STOP_REPORTING;
-      }
+  if (input.batteryVoltage !== undefined && input.batteryVoltage >= config.alarm.lowBatteryVoltage && vehicleId) {
+    const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
+      vehicleId,
+      AlertType.BATTERY_VOLTAGE_ABNORMAL
+    );
+    if (activeAlert) {
+      types.push(AlertType.BATTERY_VOLTAGE_ABNORMAL);
     }
   }
 
-  return null;
+  if (input.refrigerationRunning === true && vehicleId) {
+    const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
+      vehicleId,
+      AlertType.REFRIGERATION_STOP_REPORTING
+    );
+    if (activeAlert) {
+      types.push(AlertType.REFRIGERATION_STOP_REPORTING);
+    }
+  }
+
+  return types;
 }
 
 function handleRecoverySignal(
@@ -184,21 +219,11 @@ function handleNormalSignal(vehicle: Vehicle, input: ReportSignalInput): SignalP
     timestamp: input.timestamp
   });
 
-  const db = getDatabase();
-  const allActiveAlerts = db.findAll(
-    'alertEvents',
-    (a: AlertEvent) => a.vehicleId === vehicle.id && a.status === 'active'
-  ) as AlertEvent[];
-
-  for (const alert of allActiveAlerts) {
-    alertRepository.resolveAlertEvent(alert.id);
-  }
-
   return {
     signal,
     alertCreated: false,
     alertUpdated: false,
-    alertResolved: allActiveAlerts.length > 0,
+    alertResolved: false,
     notificationsSent: 0,
     isNightTime: isNightTime(
       dayjs(signal.timestamp),
@@ -208,20 +233,22 @@ function handleNormalSignal(vehicle: Vehicle, input: ReportSignalInput): SignalP
   };
 }
 
-function determineAlertType(input: ReportSignalInput): AlertType | null {
+function determineAlertType(input: ReportSignalInput): AlertType[] {
+  const types: AlertType[] = [];
+
   if (input.externalPowerConnected === false) {
-    return AlertType.EXTERNAL_POWER_DISCONNECT;
+    types.push(AlertType.EXTERNAL_POWER_DISCONNECT);
   }
 
   if (input.batteryVoltage !== undefined && input.batteryVoltage < config.alarm.lowBatteryVoltage) {
-    return AlertType.BATTERY_VOLTAGE_ABNORMAL;
+    types.push(AlertType.BATTERY_VOLTAGE_ABNORMAL);
   }
 
   if (input.refrigerationRunning === false) {
-    return AlertType.REFRIGERATION_STOP_REPORTING;
+    types.push(AlertType.REFRIGERATION_STOP_REPORTING);
   }
 
-  return null;
+  return types;
 }
 
 function processNightAlert(
