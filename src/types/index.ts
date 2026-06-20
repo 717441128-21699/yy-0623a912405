@@ -69,6 +69,7 @@ export interface AlertEvent {
   signalId: string;
   alertType: AlertType;
   alertLevel: AlertLevel;
+  initialAlertLevel: AlertLevel;
   powerOffDurationMinutes: number;
   currentTemperature?: number;
   currentBatteryVoltage?: number;
@@ -93,6 +94,7 @@ export interface Notification {
   status: NotificationStatus;
   confirmedAt?: string;
   confirmedBy?: string;
+  confirmationSource?: string;
   escalatedTo?: string;
   escalationLevel: number;
   createdAt: string;
@@ -123,6 +125,7 @@ export interface AlertSummary {
   id: string;
   alertType: AlertType;
   alertLevel: AlertLevel;
+  initialAlertLevel: AlertLevel;
   status: 'active' | 'resolved';
   powerOffDurationMinutes: number;
   currentTemperature?: number;
@@ -173,5 +176,6 @@ export interface ConfirmationRecord {
   sentAt?: string;
   confirmedAt?: string;
   confirmedBy?: string;
+  confirmationSource?: string;
   escalationLevel: number;
 }

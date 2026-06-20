@@ -14,11 +14,13 @@ export interface CreateNotificationInput {
   alertLevel: AlertLevel;
   content: string;
   escalationLevel?: number;
+  signalTimestamp?: string;
 }
 
 export function createNotification(input: CreateNotificationInput): Notification {
   const id = uuidv4();
   const now = getCurrentTimestamp();
+  const createdAt = input.signalTimestamp || now;
 
   const notification: Notification = {
     id,
@@ -31,7 +33,8 @@ export function createNotification(input: CreateNotificationInput): Notification
     content: input.content,
     status: NotificationStatus.PENDING,
     escalationLevel: input.escalationLevel || 0,
-    createdAt: now
+    createdAt,
+    sentAt: now
   };
 
   db.insert('notifications', notification);
@@ -100,12 +103,13 @@ export function markNotificationSent(id: string): Notification | null {
   }) as Notification | null;
 }
 
-export function confirmNotification(id: string, confirmedBy?: string): Notification | null {
+export function confirmNotification(id: string, confirmedBy?: string, confirmationSource?: string): Notification | null {
   const now = getCurrentTimestamp();
   return db.update('notifications', id, {
     status: NotificationStatus.CONFIRMED,
     confirmedAt: now,
-    confirmedBy: confirmedBy || null
+    confirmedBy: confirmedBy || null,
+    confirmationSource: confirmationSource || confirmedBy || null
   }) as Notification | null;
 }
 

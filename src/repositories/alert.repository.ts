@@ -16,11 +16,13 @@ export interface CreateAlertEventInput {
   goodsSensitivity?: GoodsSensitivity;
   nearDelivery?: boolean;
   description?: string;
+  signalTimestamp?: string;
 }
 
 export function createAlertEvent(input: CreateAlertEventInput): AlertEvent {
   const id = uuidv4();
   const now = getCurrentTimestamp();
+  const createdAt = input.signalTimestamp || now;
 
   const alert: AlertEvent = {
     id,
@@ -28,6 +30,7 @@ export function createAlertEvent(input: CreateAlertEventInput): AlertEvent {
     signalId: input.signalId,
     alertType: input.alertType,
     alertLevel: input.alertLevel,
+    initialAlertLevel: input.alertLevel,
     powerOffDurationMinutes: input.powerOffDurationMinutes,
     currentTemperature: input.currentTemperature,
     currentBatteryVoltage: input.currentBatteryVoltage,
@@ -35,7 +38,7 @@ export function createAlertEvent(input: CreateAlertEventInput): AlertEvent {
     nearDelivery: input.nearDelivery || false,
     description: input.description || '',
     status: 'active',
-    createdAt: now,
+    createdAt,
     updatedAt: now
   };
 

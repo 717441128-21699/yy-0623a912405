@@ -130,20 +130,19 @@ function determineRecoveryType(input: ReportSignalInput): AlertType[] {
   const types: AlertType[] = [];
   const vehicleId = input.vehicleId || (input.plateNumber ? vehicleRepository.getVehicleByPlateNumber(input.plateNumber)?.id : undefined);
 
-  if (input.externalPowerConnected === true && vehicleId) {
-    const prevPowerOff = powerSignalRepository.hasPowerDisconnectedRecently(vehicleId, 60);
-    if (prevPowerOff) {
-      const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
-        vehicleId,
-        AlertType.EXTERNAL_POWER_DISCONNECT
-      );
-      if (activeAlert) {
-        types.push(AlertType.EXTERNAL_POWER_DISCONNECT);
-      }
+  if (!vehicleId) return types;
+
+  if (input.externalPowerConnected === true) {
+    const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
+      vehicleId,
+      AlertType.EXTERNAL_POWER_DISCONNECT
+    );
+    if (activeAlert) {
+      types.push(AlertType.EXTERNAL_POWER_DISCONNECT);
     }
   }
 
-  if (input.batteryVoltage !== undefined && input.batteryVoltage >= config.alarm.lowBatteryVoltage && vehicleId) {
+  if (input.batteryVoltage !== undefined && input.batteryVoltage >= config.alarm.lowBatteryVoltage) {
     const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
       vehicleId,
       AlertType.BATTERY_VOLTAGE_ABNORMAL
@@ -153,7 +152,7 @@ function determineRecoveryType(input: ReportSignalInput): AlertType[] {
     }
   }
 
-  if (input.refrigerationRunning === true && vehicleId) {
+  if (input.refrigerationRunning === true) {
     const activeAlert = alertRepository.getActiveAlertByVehicleAndType(
       vehicleId,
       AlertType.REFRIGERATION_STOP_REPORTING
@@ -298,7 +297,8 @@ function processNightAlert(
       currentBatteryVoltage: signal.batteryVoltage,
       goodsSensitivity: vehicle.goodsSensitivity,
       nearDelivery,
-      description: classification.description
+      description: classification.description,
+      signalTimestamp: signal.timestamp
     });
     isNewAlert = true;
     newLevel = classification.level;
@@ -312,7 +312,8 @@ function processNightAlert(
     const notifications = notificationService.dispatchAlertNotifications(
       alert.id,
       isUpgrade,
-      isUpgrade ? previousLevel : undefined
+      isUpgrade ? previousLevel : undefined,
+      signal.timestamp
     );
     notificationsSent = notifications.length;
   }

@@ -108,6 +108,7 @@ function buildAlertSummary(alert: AlertEvent): AlertSummary {
     id: alert.id,
     alertType: alert.alertType,
     alertLevel: alert.alertLevel,
+    initialAlertLevel: alert.initialAlertLevel || alert.alertLevel,
     status: alert.status,
     powerOffDurationMinutes: alert.powerOffDurationMinutes,
     currentTemperature: alert.currentTemperature,
@@ -193,14 +194,15 @@ export function getAlertTimeline(alertId: string): TimelineEvent[] {
   }
 
   const events: TimelineEvent[] = [];
+  const initialLevel = alert.initialAlertLevel || alert.alertLevel;
 
   events.push({
     id: `start-${alert.id}`,
     eventType: 'alert_start',
     timestamp: alert.createdAt,
     alertType: alert.alertType,
-    alertLevel: alert.alertLevel,
-    description: `告警首次触发，初始等级：${alert.alertLevel}`,
+    alertLevel: initialLevel,
+    description: `告警首次触发，初始等级：${initialLevel}`,
     details: {
       description: alert.description,
       initialTemperature: alert.currentTemperature,
@@ -213,25 +215,27 @@ export function getAlertTimeline(alertId: string): TimelineEvent[] {
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 
-  let lastLevel = alert.alertLevel;
+  let trackedLevel = initialLevel;
   const levelOrder = [AlertLevel.REMINDER, AlertLevel.URGENT, AlertLevel.CRITICAL];
+  const seenLevels = new Set<string>([initialLevel]);
 
   for (const notif of sortedNotifications) {
-    if (levelOrder.indexOf(notif.alertLevel) > levelOrder.indexOf(lastLevel)) {
+    if (levelOrder.indexOf(notif.alertLevel) > levelOrder.indexOf(trackedLevel) && !seenLevels.has(notif.alertLevel)) {
       events.push({
         id: `upgrade-${notif.id}`,
         eventType: 'level_upgrade',
         timestamp: notif.createdAt,
         alertType: alert.alertType,
         alertLevel: notif.alertLevel,
-        previousLevel: lastLevel,
-        description: `告警等级升级：${lastLevel} → ${notif.alertLevel}`,
+        previousLevel: trackedLevel,
+        description: `告警等级升级：${trackedLevel} → ${notif.alertLevel}`,
         details: {
           notificationId: notif.id,
           recipientType: notif.recipientType
         }
       });
-      lastLevel = notif.alertLevel;
+      seenLevels.add(notif.alertLevel);
+      trackedLevel = notif.alertLevel;
     }
 
     events.push({
@@ -261,6 +265,7 @@ export function getAlertTimeline(alertId: string): TimelineEvent[] {
         details: {
           notificationId: notif.id,
           confirmedBy: notif.confirmedBy,
+          confirmationSource: notif.confirmationSource,
           recipientType: notif.recipientType
         }
       });
@@ -291,7 +296,8 @@ export function getAlertTimeline(alertId: string): TimelineEvent[] {
       alertLevel: alert.alertLevel,
       description: '告警已解除',
       details: {
-        totalDurationMinutes: alert.powerOffDurationMinutes
+        totalDurationMinutes: alert.powerOffDurationMinutes,
+        finalLevel: alert.alertLevel
       }
     });
   }

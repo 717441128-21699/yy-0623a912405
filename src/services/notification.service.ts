@@ -17,7 +17,8 @@ export interface DispatchNotificationInput {
 export function dispatchAlertNotifications(
   alertId: string,
   isUpgrade: boolean = false,
-  previousLevel?: AlertLevel
+  previousLevel?: AlertLevel,
+  signalTimestamp?: string
 ): Notification[] {
   const alert = alertRepository.getAlertEventById(alertId);
   if (!alert) {
@@ -43,7 +44,8 @@ export function dispatchAlertNotifications(
       recipientPhone: recipientInfo.phone,
       alertLevel: alert.alertLevel,
       content: '',
-      escalationLevel: 0
+      escalationLevel: 0,
+      signalTimestamp
     });
 
     const content = generateNotificationContent(
@@ -157,7 +159,9 @@ async function sendNotification(notification: Notification): Promise<void> {
     console.log(`[通知推送] 向 ${notification.recipientName} (${notification.recipientPhone}) 发送 ${notification.alertLevel} 告警通知`);
     console.log(`[通知内容] ${notification.content.substring(0, 100)}...`);
 
-    notificationRepository.markNotificationSent(notification.id);
+    if (!notification.sentAt) {
+      notificationRepository.markNotificationSent(notification.id);
+    }
   } catch (error) {
     console.error('发送通知失败:', error);
   }
@@ -169,7 +173,7 @@ export interface ConfirmResult {
   message: string;
 }
 
-export function confirmNotification(id: string, confirmedBy?: string): ConfirmResult {
+export function confirmNotification(id: string, confirmedBy?: string, confirmationSource?: string): ConfirmResult {
   const notification = notificationRepository.getNotificationById(id);
   if (!notification) {
     throw new NotFoundError('通知不存在，请检查通知编号是否正确');
@@ -190,7 +194,7 @@ export function confirmNotification(id: string, confirmedBy?: string): ConfirmRe
     throw new BadRequestError('该通知已升级，无法再确认，请查看最新通知');
   }
 
-  const result = notificationRepository.confirmNotification(id, confirmedBy);
+  const result = notificationRepository.confirmNotification(id, confirmedBy, confirmationSource);
   if (!result) {
     throw new NotFoundError('通知不存在');
   }
@@ -371,6 +375,7 @@ export function getConfirmationRecords(
       sentAt: n.sentAt,
       confirmedAt: n.confirmedAt,
       confirmedBy: n.confirmedBy,
+      confirmationSource: n.confirmationSource,
       escalationLevel: n.escalationLevel
     };
   });
@@ -402,6 +407,7 @@ export function exportConfirmationRecordsCsv(query: ConfirmationRecordQuery): st
     '发送时间',
     '确认时间',
     '确认人',
+    '确认来源',
     '升级级别'
   ];
 
@@ -445,6 +451,7 @@ export function exportConfirmationRecordsCsv(query: ConfirmationRecordQuery): st
     r.sentAt ? new Date(r.sentAt).toLocaleString('zh-CN') : '',
     r.confirmedAt ? new Date(r.confirmedAt).toLocaleString('zh-CN') : '',
     r.confirmedBy || '',
+    r.confirmationSource || '',
     r.escalationLevel
   ]);
 

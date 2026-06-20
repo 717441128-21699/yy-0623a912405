@@ -34,7 +34,7 @@ export async function listNotifications(req: Request, res: Response, next: NextF
 export async function confirmNotification(req: Request, res: Response, next: NextFunction) {
   try {
     const { confirmedBy } = req.body;
-    const result = notificationService.confirmNotification(req.params.id, confirmedBy);
+    const result = notificationService.confirmNotification(req.params.id, confirmedBy, '接口确认');
     res.json({
       success: true,
       data: result.notification,
@@ -48,7 +48,7 @@ export async function confirmNotification(req: Request, res: Response, next: Nex
 
 export async function confirmNotificationWeb(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = notificationService.confirmNotification(req.params.id, '网页确认');
+    const result = notificationService.confirmNotification(req.params.id, '网页确认', '短信链接');
 
     const html = `
 <!DOCTYPE html>
