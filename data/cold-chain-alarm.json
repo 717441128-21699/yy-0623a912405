@@ -1,0 +1,201 @@
+{
+  "vehicles": [
+    {
+      "plateNumber": "?A12345",
+      "driverName": "??",
+      "driverPhone": "13800138001",
+      "route": "??-??",
+      "temperatureZone": "??-18C",
+      "minTemperature": -20,
+      "maxTemperature": -15,
+      "goodsSensitivity": "high",
+      "deliveryEstimateTime": "2026-06-21T08:00:00.000Z",
+      "nightContactName": "??",
+      "nightContactPhone": "13900139002",
+      "dispatcherName": "???",
+      "dispatcherPhone": "13700137003",
+      "qualityControllerName": "???",
+      "qualityControllerPhone": "13600136004",
+      "shipperName": "???",
+      "shipperPhone": "13500135005",
+      "nightStartHour": 22,
+      "nightEndHour": 6,
+      "id": "4e9f2f49-39b7-47d9-9da3-69520c70872f",
+      "createdAt": "2026-06-20T20:57:31.111Z",
+      "updatedAt": "2026-06-20T20:57:31.111Z"
+    }
+  ],
+  "powerSignals": [
+    {
+      "id": "e109f11f-b1fe-4f92-b204-c5dbbf1fd408",
+      "vehicleId": "4e9f2f49-39b7-47d9-9da3-69520c70872f",
+      "deviceId": "DEV001",
+      "alertType": "external_power_disconnect",
+      "externalPowerConnected": false,
+      "batteryVoltage": 24.5,
+      "refrigerationRunning": true,
+      "temperature": -17.5,
+      "location": "??????",
+      "timestamp": "2026-06-20T20:57:40.814Z",
+      "receivedAt": "2026-06-20T20:57:40.814Z"
+    }
+  ],
+  "alertEvents": [
+    {
+      "id": "2e99a1db-8170-47ca-8b36-ecb99bbeeb32",
+      "vehicleId": "4e9f2f49-39b7-47d9-9da3-69520c70872f",
+      "signalId": "e109f11f-b1fe-4f92-b204-c5dbbf1fd408",
+      "alertType": "external_power_disconnect",
+      "alertLevel": "reminder",
+      "powerOffDurationMinutes": 0,
+      "currentTemperature": -17.5,
+      "goodsSensitivity": "high",
+      "nearDelivery": false,
+      "description": "【提醒】外接电源断开，已持续 0 分钟，当前温度 -17.5°C，电压 24.5V",
+      "status": "active",
+      "createdAt": "2026-06-20T20:57:40.815Z",
+      "updatedAt": "2026-06-20T20:57:40.815Z"
+    }
+  ],
+  "notifications": [
+    {
+      "id": "58a760e5-0ec8-4949-8fa9-06f3a2b4a10f",
+      "alertId": "2e99a1db-8170-47ca-8b36-ecb99bbeeb32",
+      "vehicleId": "4e9f2f49-39b7-47d9-9da3-69520c70872f",
+      "recipientType": "driver",
+      "recipientName": "??",
+      "recipientPhone": "13800138001",
+      "alertLevel": "reminder",
+      "content": "提醒??师傅\n车牌号：?A12345\n司机：??\n【提醒】外接电源断开，已持续 0 分钟，当前温度 -17.5°C，电压 24.5V\n当前温度：-17.5°C\n货品温区：??-18C\n已断电时长：0 分钟\n\n请点击确认收到：/api/notifications/{id}/confirm",
+      "status": "confirmed",
+      "escalationLevel": 0,
+      "createdAt": "2026-06-20T20:57:40.816Z",
+      "sentAt": "2026-06-20T20:57:40.817Z",
+      "updatedAt": "2026-06-20T20:58:01.553Z",
+      "confirmedAt": "2026-06-20T20:58:01.553Z",
+      "confirmedBy": "??"
+    }
+  ],
+  "alertRules": [
+    {
+      "id": "rule-reminder-power",
+      "name": "断电提醒（短时）",
+      "alertType": "external_power_disconnect",
+      "minPowerOffMinutes": 5,
+      "goodsSensitivityRequired": null,
+      "nearDeliveryRequired": false,
+      "targetLevel": "reminder",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-urgent-power-medium",
+      "name": "断电紧急（中等敏感）",
+      "alertType": "external_power_disconnect",
+      "minPowerOffMinutes": 15,
+      "goodsSensitivityRequired": "medium",
+      "nearDeliveryRequired": false,
+      "targetLevel": "urgent",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-urgent-power-delivery",
+      "name": "断电紧急（临近交付）",
+      "alertType": "external_power_disconnect",
+      "minPowerOffMinutes": 10,
+      "goodsSensitivityRequired": null,
+      "nearDeliveryRequired": true,
+      "targetLevel": "urgent",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-critical-power-high",
+      "name": "断电重大（高敏感）",
+      "alertType": "external_power_disconnect",
+      "minPowerOffMinutes": 10,
+      "goodsSensitivityRequired": "high",
+      "nearDeliveryRequired": false,
+      "targetLevel": "critical",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-critical-power-long",
+      "name": "断电重大（长时间）",
+      "alertType": "external_power_disconnect",
+      "minPowerOffMinutes": 30,
+      "goodsSensitivityRequired": null,
+      "nearDeliveryRequired": false,
+      "targetLevel": "critical",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-reminder-battery",
+      "name": "电压异常提醒",
+      "alertType": "battery_voltage_abnormal",
+      "minPowerOffMinutes": 0,
+      "goodsSensitivityRequired": null,
+      "nearDeliveryRequired": false,
+      "targetLevel": "reminder",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-urgent-battery",
+      "name": "电压异常紧急",
+      "alertType": "battery_voltage_abnormal",
+      "minPowerOffMinutes": 5,
+      "goodsSensitivityRequired": "high",
+      "nearDeliveryRequired": false,
+      "targetLevel": "urgent",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-reminder-refrigeration",
+      "name": "冷机停报提醒",
+      "alertType": "refrigeration_stop_reporting",
+      "minPowerOffMinutes": 5,
+      "goodsSensitivityRequired": null,
+      "nearDeliveryRequired": false,
+      "targetLevel": "reminder",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-urgent-refrigeration",
+      "name": "冷机停报紧急",
+      "alertType": "refrigeration_stop_reporting",
+      "minPowerOffMinutes": 15,
+      "goodsSensitivityRequired": "medium",
+      "nearDeliveryRequired": false,
+      "targetLevel": "urgent",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    },
+    {
+      "id": "rule-critical-refrigeration",
+      "name": "冷机停报重大",
+      "alertType": "refrigeration_stop_reporting",
+      "minPowerOffMinutes": 30,
+      "goodsSensitivityRequired": "high",
+      "nearDeliveryRequired": false,
+      "targetLevel": "critical",
+      "enabled": true,
+      "createdAt": "2026-06-20T20:56:57.616Z",
+      "updatedAt": "2026-06-20T20:56:57.616Z"
+    }
+  ]
+}
